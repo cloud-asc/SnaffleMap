@@ -12,6 +12,7 @@ import pytest
 from snafflemap.models import Severity, FileResult, ShareResult, DirResult
 from snafflemap.parsers import (
     ParseError,
+    _parse_tsv_line,
     _unescape_match_context,
     deduplicate,
     detect_format,
@@ -50,7 +51,6 @@ class TestParseTsvFileResults:
 
     def test_file_result_alt_filename_empty_is_none(self, sample_tsv):
         rs = parse_tsv(sample_tsv)
-        # First file has empty alt_filename field → None; match_context gets the value
         assert rs.files[0].alt_filename is None
 
     def test_file_result_match_context_escaped(self, sample_tsv):
@@ -495,7 +495,7 @@ class TestUnescapeFunction:
 class TestParseUnescape:
     def test_parse_tsv_unescape_applies_to_match_context(self, tmp_path):
         # Real Snaffler format with escaped spaces and newlines in match_context
-        line = "[MANCITY\\p.foden@Foden-PC01]\t2026-03-24 00:47:19Z\t[File]\tRed\tKeepPsCredentials\tR\t\t\t-SecureString\t416\t2026-03-24 00:04:39Z\t\\\\DC01\\TeamDocs\\script.ps1\t\t\\$BackupPass\\ =\\ 'secret'\\n\n"
+        line = "[MANCITY\\p.foden@Foden-PC01]\t2026-03-24 00:47:19Z\t[File]\tRed\tKeepPsCredentials\tR\t\t\t-SecureString\t416\t2026-03-24 00:04:39Z\t\\\\DC01\\TeamDocs\\script.ps1\t\\$BackupPass\\ =\\ 'secret'\\n\n"
         tsv_file = tmp_path / "test.tsv"
         tsv_file.write_text(line, encoding="utf-8")
         rs = parse_tsv(tsv_file, unescape=True)
@@ -503,7 +503,7 @@ class TestParseUnescape:
         assert "$BackupPass = 'secret'\n" == rs.files[0].match_context
 
     def test_parse_tsv_no_unescape_keeps_literal(self, tmp_path):
-        line = "[MANCITY\\p.foden@Foden-PC01]\t2026-03-24 00:47:19Z\t[File]\tRed\tKeepPsCredentials\tR\t\t\t-SecureString\t416\t2026-03-24 00:04:39Z\t\\\\DC01\\TeamDocs\\script.ps1\t\t\\$BackupPass\\ =\\ 'secret'\\n\n"
+        line = "[MANCITY\\p.foden@Foden-PC01]\t2026-03-24 00:47:19Z\t[File]\tRed\tKeepPsCredentials\tR\t\t\t-SecureString\t416\t2026-03-24 00:04:39Z\t\\\\DC01\\TeamDocs\\script.ps1\t\\$BackupPass\\ =\\ 'secret'\\n\n"
         tsv_file = tmp_path / "test.tsv"
         tsv_file.write_text(line, encoding="utf-8")
         rs = parse_tsv(tsv_file, unescape=False)
@@ -660,7 +660,7 @@ class TestEncodingAndDetection:
         f = tmp_path / "nonutf8.tsv"
         f.write_bytes(
             b"[ORG\\user@PC]\t2025-01-01 00:00:00Z\t[File]\tRed\tRuleName\tR\t\t\tkey\t100"
-            b"\t2025-01-01 00:00:00Z\t\\\\HOST\\Share\\file.txt\t\tbad \x97 byte\n"
+            b"\t2025-01-01 00:00:00Z\t\\\\HOST\\Share\\file.txt\tbad \x97 byte\n"
         )
         result = parse(str(f))
         assert result.file_count == 1
@@ -672,7 +672,7 @@ class TestEncodingAndDetection:
         f = tmp_path / "nonutf8.tsv"
         f.write_bytes(
             b"[ORG\\user@PC]\t2025-01-01 00:00:00Z\t[File]\tRed\tRule\tR\t\t\tkey\t100"
-            b"\t2025-01-01 00:00:00Z\t\\\\H\\S\\f.txt\t\t\x97\n"
+            b"\t2025-01-01 00:00:00Z\t\\\\H\\S\\f.txt\t\x97\n"
         )
         results = list(parse_iter(str(f)))
         assert len(results) == 1

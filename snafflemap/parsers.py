@@ -124,8 +124,7 @@ def _parse_tsv_line(
         file_size = int(fields[9])
         modified_date = _parse_date(fields[10])
         file_path = fields[11]
-        alt_filename = fields[12] if n > 12 and fields[12] else None
-        match_context = fields[13] if n > 13 else ""
+        match_context = fields[12] if n > 12 else ""
         if unescape:
             match_context = _unescape_match_context(match_context)
         return FileResult(
@@ -138,7 +137,7 @@ def _parse_tsv_line(
             file_size=file_size,
             modified_date=modified_date,
             file_path=file_path,
-            alt_filename=alt_filename,
+            alt_filename=None,
             match_context=match_context,
             source_line=line_number,
         )
